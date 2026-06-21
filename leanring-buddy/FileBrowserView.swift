@@ -17,6 +17,7 @@ struct FileBrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Header
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Button(action: store.pickFolder) {
@@ -24,26 +25,64 @@ struct FileBrowserView: View {
                               systemImage: "folder")
                     }
                     Spacer()
-                    Text("\(store.clips.count) clips")
-                        .foregroundStyle(.secondary).font(.caption)
+                    if !store.clips.isEmpty {
+                        Text("\(store.clips.count) clips")
+                            .foregroundStyle(.secondary).font(.caption)
+                    }
                 }
-                TextField("Search clips, tags, summaries…", text: $search)
-                    .textFieldStyle(.roundedBorder)
+                if store.folderURL != nil {
+                    TextField("Search clips, tags, summaries…", text: $search)
+                        .textFieldStyle(.roundedBorder)
+                }
+                // Progress bar while indexing
+                if store.isIndexing {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ProgressView(value: Double(store.indexProgress),
+                                     total: Double(max(store.indexTotal, 1)))
+                        Text("Indexing \(store.indexProgress) / \(store.indexTotal)…")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
             }
             .padding(12)
             Divider()
-            List(filtered) { clip in
-                Button { selected = clip } label: {
-                    ClipRow(clip: clip)
+
+            // Body: empty state OR list
+            if store.folderURL == nil {
+                emptyState
+            } else {
+                List(filtered) { clip in
+                    Button { selected = clip } label: { ClipRow(clip: clip) }
+                        .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .listStyle(.inset)
             }
-            .listStyle(.inset)
         }
         .frame(minWidth: 360)
-        .sheet(item: $selected) { clip in
-            ClipDetailView(clip: clip)
+        .sheet(item: $selected) { clip in ClipDetailView(clip: clip) }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            Image(systemName: "film.stack")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("No folder selected")
+                .font(.headline)
+            Text("Choose a folder of clips and chris will\ntranscribe, tag, and flag them automatically.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: store.pickFolder) {
+                Label("Choose folder…", systemImage: "folder")
+            }
+            .controlSize(.large)
+            .padding(.top, 4)
+            Spacer()
         }
+        .frame(maxWidth: .infinity)
+        .padding()
     }
 }
 
@@ -86,7 +125,7 @@ struct ClipRow: View {
             }
         }
         .padding(.vertical, 4)
-        .contentShape(Rectangle())   // makes the whole row clickable
+        .contentShape(Rectangle())
     }
 
     private var issueText: String {

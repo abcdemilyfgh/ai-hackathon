@@ -4,8 +4,13 @@ import Combine
 
 @MainActor
 final class ClipStore: ObservableObject {
-    @Published var clips: [Clip] = Clip.mock()
+    @Published var clips: [Clip] = []
     @Published var folderURL: URL?
+
+    // Indexing progress
+    @Published var isIndexing = false
+    @Published var indexProgress = 0
+    @Published var indexTotal = 0
 
     private var cache: [String: CachedClip] = [:]
 
@@ -30,7 +35,6 @@ final class ClipStore: ObservableObject {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .map { fileURL -> Clip in
                 let path = fileURL.path
-                // Cache hit (and file unchanged) → reuse instantly.
                 if let cached = cache[path], cached.mtime == ClipCache.mtime(of: path) {
                     return cached.clip
                 }
@@ -43,9 +47,16 @@ final class ClipStore: ObservableObject {
     }
 
     func indexAll() async {
-        for clip in clips where !clip.indexed {
+        let pending = clips.filter { !$0.indexed }
+        indexTotal = pending.count
+        indexProgress = 0
+        isIndexing = indexTotal > 0
+
+        for clip in pending {
             await index(clip)
+            indexProgress += 1
         }
+        isIndexing = false
     }
 
     private func index(_ clip: Clip) async {
@@ -80,7 +91,6 @@ final class ClipStore: ObservableObject {
         apply(result)
     }
 
-    /// Update the UI row AND persist to cache.
     private func apply(_ clip: Clip) {
         if let i = clips.firstIndex(where: { $0.id == clip.id }) {
             clips[i] = clip

@@ -12,18 +12,32 @@ struct ChatView: View {
     @State private var input = ""
     @State private var sending = false
 
-    // Your live Worker + a model your account can use.
     private let chatURL = URL(string: "https://clicky-proxy.emjesscleo.workers.dev/chat")!
     private let model = "claude-sonnet-4-6"
+
+    private let suggestions = [
+        "Which clips have the most filler words?",
+        "Find my b-roll clips",
+        "Which clips have repeated phrases?",
+        "Give me a quick overview of all my clips"
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(messages) { m in bubble(m).id(m.id) }
+                    if messages.isEmpty {
+                        emptyChat
+                    } else {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(messages) { m in bubble(m).id(m.id) }
+                            if sending {
+                                HStack { ProgressView().controlSize(.small); Spacer() }
+                                    .padding(.horizontal, 12)
+                            }
+                        }
+                        .padding(12)
                     }
-                    .padding(12)
                 }
                 .onChange(of: messages.count) { _ in
                     if let last = messages.last {
@@ -35,13 +49,46 @@ struct ChatView: View {
             HStack {
                 TextField("Ask about your clips…", text: $input, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit(send)
-                Button(action: send) { Image(systemName: "paperplane.fill") }
+                    .onSubmit { sendText(input) }
+                Button { sendText(input) } label: { Image(systemName: "paperplane.fill") }
                     .disabled(sending || input.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(12)
         }
         .frame(minWidth: 360)
+    }
+
+    private var emptyChat: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("💬 Ask chris about your footage")
+                    .font(.headline)
+                Text("Try one of these:")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(suggestions, id: \.self) { s in
+                Button { sendText(s) } label: {
+                    HStack {
+                        Text(s).multilineTextAlignment(.leading)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.accentColor.opacity(0.10)))
+                }
+                .buttonStyle(.plain)
+                .disabled(store.clips.isEmpty)
+            }
+            if store.clips.isEmpty {
+                Text("Choose a folder first to start chatting.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private func bubble(_ m: ChatMessage) -> some View {
@@ -58,14 +105,13 @@ struct ChatView: View {
         }
     }
 
-    private func send() {
-        let q = input.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return }
+    private func sendText(_ raw: String) {
+        let q = raw.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty, !sending else { return }
         messages.append(.init(role: "user", text: q))
         input = ""
         sending = true
 
-        // Build conversation history for Claude (user/assistant turns so far).
         let history = messages.map { ["role": $0.role, "content": $0.text] }
         let systemPrompt = """
         You are an assistant for a video creator. You help them find and reason about \
@@ -115,3 +161,4 @@ struct ChatView: View {
         }
     }
 }
+
