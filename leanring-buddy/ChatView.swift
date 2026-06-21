@@ -61,7 +61,7 @@ struct ChatView: View {
     private var emptyChat: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("💬 Ask chris about your footage")
+                Text("💬 Ask Snappy about your footage")
                     .font(.headline)
                 Text("Try one of these:")
                     .font(.caption).foregroundStyle(.secondary)

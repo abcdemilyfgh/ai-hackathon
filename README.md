@@ -1,12 +1,12 @@
-# chris 🎬
+# Snappy 🎬
 
-A desktop chatbot for video creators. Point it at a folder of clips and it
+A desktop chatbot for video creators. Select a folder of clips and it
 indexes them in the background — transcribing, auto-tagging, summarizing, and
 flagging editing issues (filler words, repeated phrases) — then lets you chat
 naturally to find and reason about your footage.
 
 ## What it does
-- 📁 Point at a folder — reads videos in place (nothing uploaded/copied)
+- 📁 Select a folder — reads videos in place (nothing uploaded/copied)
 - 🎙 Auto-transcribes every clip with Deepgram
 - 🏷 Auto-tags + summarizes each clip with Claude
 - ⚠️ Flags filler words and repeated phrases

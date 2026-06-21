@@ -11,17 +11,17 @@ struct leanring_buddyApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        Window("chris", id: "main") {
+        Window("Snappy", id: "main") {
             MainView()
         }
 
-        MenuBarExtra("chris", systemImage: "film.stack") {
-            Button("Open chris") {
+        MenuBarExtra("Snappy", systemImage: "film.stack") {
+            Button("Open Snappy") {
                 NSApp.activate(ignoringOtherApps: true)
                 openWindow(id: "main")
             }
             Divider()
-            Button("Quit chris") { NSApp.terminate(nil) }
+            Button("Quit Snappy") { NSApp.terminate(nil) }
         }
     }
 }

@@ -4,20 +4,43 @@ struct FileBrowserView: View {
     @ObservedObject var store: ClipStore
     @State private var search = ""
     @State private var selected: Clip?
+    @State private var flaggedOnly = false
+    @State private var sort: SortOrder = .name
+
+    enum SortOrder: String, CaseIterable, Identifiable {
+        case name = "Name", duration = "Duration", issues = "Issues"
+        var id: String { rawValue }
+    }
 
     var filtered: [Clip] {
-        guard !search.isEmpty else { return store.clips }
-        let q = search.lowercased()
-        return store.clips.filter {
-            $0.filename.lowercased().contains(q)
-            || $0.tags.contains { $0.lowercased().contains(q) }
-            || ($0.summary?.lowercased().contains(q) ?? false)
+        var list = store.clips
+
+        if !search.isEmpty {
+            let q = search.lowercased()
+            list = list.filter {
+                $0.filename.lowercased().contains(q)
+                || $0.tags.contains { $0.lowercased().contains(q) }
+                || ($0.summary?.lowercased().contains(q) ?? false)
+            }
         }
+        if flaggedOnly { list = list.filter { $0.hasIssues } }
+
+        switch sort {
+        case .name:
+            list.sort { $0.filename < $1.filename }
+        case .duration:
+            list.sort { ($0.durationSeconds ?? 0) > ($1.durationSeconds ?? 0) }
+        case .issues:
+            list.sort {
+                ($0.fillerWordCount + $0.duplicatePhrases.count)
+                    > ($1.fillerWordCount + $1.duplicatePhrases.count)
+            }
+        }
+        return list
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Button(action: store.pickFolder) {
@@ -26,15 +49,29 @@ struct FileBrowserView: View {
                     }
                     Spacer()
                     if !store.clips.isEmpty {
-                        Text("\(store.clips.count) clips")
+                        Text("\(filtered.count) of \(store.clips.count)")
                             .foregroundStyle(.secondary).font(.caption)
                     }
                 }
+
                 if store.folderURL != nil {
                     TextField("Search clips, tags, summaries…", text: $search)
                         .textFieldStyle(.roundedBorder)
+
+                    HStack {
+                        Toggle("Flagged only", isOn: $flaggedOnly)
+                            .toggleStyle(.checkbox)
+                            .font(.caption)
+                        Spacer()
+                        Picker("Sort", selection: $sort) {
+                            ForEach(SortOrder.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 150)
+                        .font(.caption)
+                    }
                 }
-                // Progress bar while indexing
+
                 if store.isIndexing {
                     VStack(alignment: .leading, spacing: 3) {
                         ProgressView(value: Double(store.indexProgress),
@@ -47,7 +84,6 @@ struct FileBrowserView: View {
             .padding(12)
             Divider()
 
-            // Body: empty state OR list
             if store.folderURL == nil {
                 emptyState
             } else {
@@ -66,23 +102,18 @@ struct FileBrowserView: View {
         VStack(spacing: 14) {
             Spacer()
             Image(systemName: "film.stack")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("No folder selected")
-                .font(.headline)
-            Text("Choose a folder of clips and chris will\ntranscribe, tag, and flag them automatically.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 48)).foregroundStyle(.secondary)
+            Text("No folder selected").font(.headline)
+            Text("Choose a folder of clips and Snappy will\ntranscribe, tag, and flag them automatically.")
+                .font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button(action: store.pickFolder) {
                 Label("Choose folder…", systemImage: "folder")
             }
-            .controlSize(.large)
-            .padding(.top, 4)
+            .controlSize(.large).padding(.top, 4)
             Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding()
+        .frame(maxWidth: .infinity).padding()
     }
 }
 
@@ -92,18 +123,14 @@ struct ClipRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "film")
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
+                .foregroundStyle(.secondary).padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(clip.filename).fontWeight(.medium)
-                    if !clip.indexed {
-                        ProgressView().controlSize(.small)
-                    }
+                    if !clip.indexed { ProgressView().controlSize(.small) }
                     if clip.hasIssues {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                            .help(issueText)
+                            .foregroundStyle(.orange).help(issueText)
                     }
                     Spacer()
                     Text(clip.durationLabel)
@@ -115,8 +142,7 @@ struct ClipRow: View {
                 if !clip.tags.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(clip.tags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption2)
+                            Text(tag).font(.caption2)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
                                 .background(Capsule().fill(Color.accentColor.opacity(0.15)))
                         }
@@ -124,8 +150,7 @@ struct ClipRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
+        .padding(.vertical, 4).contentShape(Rectangle())
     }
 
     private var issueText: String {
