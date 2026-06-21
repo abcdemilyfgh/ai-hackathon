@@ -1,8 +1,8 @@
 # Snappy 🔴
 
-**Sort through your clips in a snap.** · *Talk to your footage.*
+**Every moment, one snap away.** · *Talk to your footage.*
 
-snappy is a macOS app that watches and listens to your video clips so you can find the right moment by *just asking for it*. Point it at a folder and it transcribes, tags, summarizes, and flags every clip automatically, then lets you chat with your whole library like it's a person who watched all of it.
+Snappy is a macOS app that watches and listens to your video clips so you can find the right moment by *just asking for it*. Point it at a folder and it transcribes, tags, summarizes, and flags every clip automatically, then lets you chat with your whole library like it's a person who watched all of it.
 
 ![snappy](snappy-hero-banner.png)
 
