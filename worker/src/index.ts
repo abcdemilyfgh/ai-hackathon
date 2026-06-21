@@ -1,12 +1,14 @@
 /**
  * Clicky Proxy Worker
  *
- * Proxies requests to Claude and ElevenLabs APIs so the app never
- * ships with raw API keys. Keys are stored as Cloudflare secrets.
+ * Proxies requests to Claude, ElevenLabs, AssemblyAI, and Deepgram APIs
+ * so the app never ships with raw API keys. Keys are stored as Cloudflare secrets.
  *
  * Routes:
- *   POST /chat  → Anthropic Messages API (streaming)
- *   POST /tts   → ElevenLabs TTS API
+ *   POST /chat              → Anthropic Messages API (streaming)
+ *   POST /tts               → ElevenLabs TTS API
+ *   POST /transcribe-token  → AssemblyAI streaming token
+ *   POST /transcribe        → Deepgram prerecorded transcription
  */
 
 interface Env {
@@ -14,6 +16,7 @@ interface Env {
   ELEVENLABS_API_KEY: string;
   ELEVENLABS_VOICE_ID: string;
   ASSEMBLYAI_API_KEY: string;
+  DEEPGRAM_API_KEY: string;
 }
 
 export default {
@@ -35,6 +38,10 @@ export default {
 
       if (url.pathname === "/transcribe-token") {
         return await handleTranscribeToken(env);
+      }
+
+      if (url.pathname === "/transcribe") {
+        return await handleTranscribe(request, env);
       }
     } catch (error) {
       console.error(`[${url.pathname}] Unhandled error:`, error);
@@ -101,6 +108,37 @@ async function handleTranscribeToken(env: Env): Promise<Response> {
 
   const data = await response.text();
   return new Response(data, {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+async function handleTranscribe(request: Request, env: Env): Promise<Response> {
+  // The app sends the raw audio/video bytes as the request body.
+  // Query params (model, smart_format, etc.) are passed straight through to Deepgram.
+  const incoming = new URL(request.url);
+  const dgUrl = new URL("https://api.deepgram.com/v1/listen");
+  dgUrl.search = incoming.search; // forward ?model=...&smart_format=true etc.
+
+  const response = await fetch(dgUrl.toString(), {
+    method: "POST",
+    headers: {
+      authorization: `Token ${env.DEEPGRAM_API_KEY}`,
+      "content-type": request.headers.get("content-type") || "application/octet-stream",
+    },
+    body: request.body,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(`[/transcribe] Deepgram error ${response.status}: ${errorBody}`);
+    return new Response(errorBody, {
+      status: response.status,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  return new Response(response.body, {
     status: 200,
     headers: { "content-type": "application/json" },
   });

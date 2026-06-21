@@ -1,10 +1,6 @@
 //
 //  leanring_buddyApp.swift
-//  leanring-buddy
-//
-//  Menu bar-only companion app. No dock icon, no main window — just an
-//  always-available status item in the macOS menu bar. Clicking the icon
-//  opens a floating panel with companion voice controls.
+//  Clip Assistant
 //
 
 import ServiceManagement
@@ -14,19 +10,26 @@ import Sparkle
 @main
 struct leanring_buddyApp: App {
     @NSApplicationDelegateAdaptor(CompanionAppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        // The app lives entirely in the menu bar panel managed by the AppDelegate.
-        // This empty Settings scene satisfies SwiftUI's requirement for at least
-        // one scene but is never shown (LSUIElement=true removes the app menu).
-        Settings {
-            EmptyView()
+        Window("Chris", id: "main") {
+            MainView()
+        }
+
+        MenuBarExtra("Chris", systemImage: "film.stack") {
+            Button("Open Chris") {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "main")
+            }
+            Divider()
+            Button("Quit Chris") { NSApp.terminate(nil) }
         }
     }
 }
 
-/// Manages the companion lifecycle: creates the menu bar panel and starts
-/// the companion voice pipeline on launch.
+/// App lifecycle. Clicky's companion UI (menu-bar panel, popup, cursor follower,
+/// voice pipeline) is intentionally disabled — this is now Clip Assistant.
 @MainActor
 final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarPanelManager: MenuBarPanelManager?
@@ -34,40 +37,38 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
     private var sparkleUpdaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("🎯 Clicky: Starting...")
-        print("🎯 Clicky: Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")")
+        print("🎬 Clip Assistant: Starting...")
 
         UserDefaults.standard.register(defaults: ["NSInitialToolTipDelay": 0])
 
         ClickyAnalytics.configure()
         ClickyAnalytics.trackAppOpened()
 
-        menuBarPanelManager = MenuBarPanelManager(companionManager: companionManager)
-        companionManager.start()
-        // Auto-open the panel if the user still needs to do something:
-        // either they haven't onboarded yet, or permissions were revoked.
-        if !companionManager.hasCompletedOnboarding || !companionManager.allPermissionsGranted {
-            menuBarPanelManager?.showPanelOnLaunch()
-        }
-        registerAsLoginItemIfNeeded()
+        // --- Clicky companion UI disabled (menu-bar panel, popup, blue cursor follower) ---
+        // menuBarPanelManager = MenuBarPanelManager(companionManager: companionManager)
+        // companionManager.start()
+        // if !companionManager.hasCompletedOnboarding || !companionManager.allPermissionsGranted {
+        //     menuBarPanelManager?.showPanelOnLaunch()
+        // }
+        // registerAsLoginItemIfNeeded()
         // startSparkleUpdater()
+
+        // Behave like a normal windowed app (dock icon + focused window).
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        companionManager.stop()
+        // companionManager.stop()
     }
 
-    /// Registers the app as a login item so it launches automatically on
-    /// startup. Uses SMAppService which shows the app in System Settings >
-    /// General > Login Items, letting the user toggle it off if they want.
     private func registerAsLoginItemIfNeeded() {
         let loginItemService = SMAppService.mainApp
         if loginItemService.status != .enabled {
             do {
                 try loginItemService.register()
-                print("🎯 Clicky: Registered as login item")
             } catch {
-                print("⚠️ Clicky: Failed to register as login item: \(error)")
+                print("⚠️ Failed to register as login item: \(error)")
             }
         }
     }
@@ -79,11 +80,11 @@ final class CompanionAppDelegate: NSObject, NSApplicationDelegate {
             userDriverDelegate: nil
         )
         self.sparkleUpdaterController = updaterController
-
         do {
             try updaterController.updater.start()
         } catch {
-            print("⚠️ Clicky: Sparkle updater failed to start: \(error)")
+            print("⚠️ Sparkle updater failed to start: \(error)")
         }
     }
 }
+
